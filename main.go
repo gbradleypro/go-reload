@@ -107,11 +107,6 @@ func main() {
 			Usage:  "Log prefix",
 			Value:  "gin",
 		},
-		gin.BoolFlag{
-			Name:   "notifications",
-			EnvVar: "GIN_NOTIFICATIONS",
-			Usage:  "Enables desktop notifications",
-		},
 	}
 	app.Commands = []gin.Command{
 		{
