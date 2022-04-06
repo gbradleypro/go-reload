@@ -3,146 +3,136 @@ package main
 import (
 	"errors"
 	"fmt"
-
-	"github.com/codegangsta/envy/lib"
-	"github.com/codegangsta/gin/lib"
-	shellwords "github.com/mattn/go-shellwords"
-	"github.com/urfave/cli"
-
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
-	"github.com/0xAX/notificator"
+	"reload-gode/lib"
 )
 
 var (
-	startTime     = time.Now()
-	logger        = log.New(os.Stdout, "[gin] ", 0)
-	immediate     = false
-	buildError    error
-	colorGreen    = string([]byte{27, 91, 57, 55, 59, 51, 50, 59, 49, 109})
-	colorRed      = string([]byte{27, 91, 57, 55, 59, 51, 49, 59, 49, 109})
-	colorReset    = string([]byte{27, 91, 48, 109})
-	notifier      = notificator.New(notificator.Options{AppName: "Gin Build"})
-	notifications = false
+	startTime  = time.Now()
+	logger     = log.New(os.Stdout, "[gin] ", 0)
+	immediate  = false
+	colorGreen = string([]byte{27, 91, 57, 55, 59, 51, 50, 59, 49, 109})
+	colorRed   = string([]byte{27, 91, 57, 55, 59, 51, 49, 59, 49, 109})
+	colorReset = string([]byte{27, 91, 48, 109})
 )
 
 func main() {
-	app := cli.NewApp()
+	app := gin.NewApp()
 	app.Name = "gin"
 	app.Usage = "A live reload utility for Go web applications."
-	app.Action = MainAction
-	app.Flags = []cli.Flag{
-		cli.StringFlag{
+	app.Action = mainAction
+	app.Flags = []gin.Flag{
+		gin.StringFlag{
 			Name:   "laddr,l",
 			Value:  "",
 			EnvVar: "GIN_LADDR",
 			Usage:  "listening address for the proxy server",
 		},
-		cli.IntFlag{
+		gin.IntFlag{
 			Name:   "port,p",
 			Value:  3000,
 			EnvVar: "GIN_PORT",
 			Usage:  "port for the proxy server",
 		},
-		cli.IntFlag{
+		gin.IntFlag{
 			Name:   "appPort,a",
 			Value:  3001,
 			EnvVar: "BIN_APP_PORT",
 			Usage:  "port for the Go web server",
 		},
-		cli.StringFlag{
+		gin.StringFlag{
 			Name:   "bin,b",
 			Value:  "gin-bin",
 			EnvVar: "GIN_BIN",
 			Usage:  "name of generated binary file",
 		},
-		cli.StringFlag{
+		gin.StringFlag{
 			Name:   "path,t",
 			Value:  ".",
 			EnvVar: "GIN_PATH",
 			Usage:  "Path to watch files from",
 		},
-		cli.StringFlag{
+		gin.StringFlag{
 			Name:   "build,d",
 			Value:  "",
 			EnvVar: "GIN_BUILD",
 			Usage:  "Path to build files from (defaults to same value as --path)",
 		},
-		cli.StringSliceFlag{
+		gin.StringSliceFlag{
 			Name:   "excludeDir,x",
-			Value:  &cli.StringSlice{},
+			Value:  &gin.StringSlice{},
 			EnvVar: "GIN_EXCLUDE_DIR",
 			Usage:  "Relative directories to exclude",
 		},
-		cli.BoolFlag{
+		gin.BoolFlag{
 			Name:   "immediate,i",
 			EnvVar: "GIN_IMMEDIATE",
 			Usage:  "run the server immediately after it's built",
 		},
-		cli.BoolFlag{
+		gin.BoolFlag{
 			Name:   "all",
 			EnvVar: "GIN_ALL",
 			Usage:  "reloads whenever any file changes, as opposed to reloading only on .go file change",
 		},
-		cli.BoolFlag{
+		gin.BoolFlag{
 			Name:   "godep,g",
 			EnvVar: "GIN_GODEP",
 			Usage:  "use godep when building",
 		},
-		cli.StringFlag{
+		gin.StringFlag{
 			Name:   "buildArgs",
 			EnvVar: "GIN_BUILD_ARGS",
 			Usage:  "Additional go build arguments",
 		},
-		cli.StringFlag{
+		gin.StringFlag{
 			Name:   "certFile",
 			EnvVar: "GIN_CERT_FILE",
 			Usage:  "TLS Certificate",
 		},
-		cli.StringFlag{
+		gin.StringFlag{
 			Name:   "keyFile",
 			EnvVar: "GIN_KEY_FILE",
 			Usage:  "TLS Certificate Key",
 		},
-		cli.StringFlag{
+		gin.StringFlag{
 			Name:   "logPrefix",
 			EnvVar: "GIN_LOG_PREFIX",
 			Usage:  "Log prefix",
 			Value:  "gin",
 		},
-		cli.BoolFlag{
+		gin.BoolFlag{
 			Name:   "notifications",
 			EnvVar: "GIN_NOTIFICATIONS",
 			Usage:  "Enables desktop notifications",
 		},
 	}
-	app.Commands = []cli.Command{
+	app.Commands = []gin.Command{
 		{
 			Name:            "run",
 			ShortName:       "r",
 			Usage:           "Run the gin proxy in the current working directory",
-			Action:          MainAction,
+			Action:          mainAction,
 			SkipFlagParsing: true,
 		},
 		{
 			Name:      "env",
 			ShortName: "e",
 			Usage:     "Display environment variables set by the .env file",
-			Action:    EnvAction,
+			Action:    envAction,
 		},
 	}
 
 	app.Run(os.Args)
 }
 
-func MainAction(c *cli.Context) {
+func mainAction(c *gin.Context) {
 	laddr := c.GlobalString("laddr")
 	port := c.GlobalInt("port")
 	all := c.GlobalBool("all")
@@ -151,12 +141,11 @@ func MainAction(c *cli.Context) {
 	keyFile := c.GlobalString("keyFile")
 	certFile := c.GlobalString("certFile")
 	logPrefix := c.GlobalString("logPrefix")
-	notifications = c.GlobalBool("notifications")
 
 	logger.SetPrefix(fmt.Sprintf("[%s] ", logPrefix))
 
 	// Bootstrap the environment
-	envy.Bootstrap()
+	gin.Bootstrap()
 
 	// Set the PORT env
 	os.Setenv("PORT", appPort)
@@ -166,7 +155,7 @@ func MainAction(c *cli.Context) {
 		logger.Fatal(err)
 	}
 
-	buildArgs, err := shellwords.Parse(c.GlobalString("buildArgs"))
+	buildArgs, err := gin.Parse(c.GlobalString("buildArgs"))
 	if err != nil {
 		logger.Fatal(err)
 	}
@@ -211,12 +200,12 @@ func MainAction(c *cli.Context) {
 	})
 }
 
-func EnvAction(c *cli.Context) {
+func envAction(c *gin.Context) {
 	logPrefix := c.GlobalString("logPrefix")
 	logger.SetPrefix(fmt.Sprintf("[%s] ", logPrefix))
 
 	// Bootstrap the environment
-	env, err := envy.Bootstrap()
+	env, err := gin.Bootstrap()
 	if err != nil {
 		logger.Fatalln(err)
 	}
@@ -230,30 +219,14 @@ func EnvAction(c *cli.Context) {
 func build(builder gin.Builder, runner gin.Runner, logger *log.Logger) {
 	logger.Println("Building...")
 
-	if notifications {
-		notifier.Push("Build Started!", "Building "+builder.Binary()+"...", "", notificator.UR_NORMAL)
-	}
 	err := builder.Build()
 	if err != nil {
-		buildError = err
 		logger.Printf("%sBuild failed%s\n", colorRed, colorReset)
 		fmt.Println(builder.Errors())
-		buildErrors := strings.Split(builder.Errors(), "\n")
-		if notifications {
-			if err := notifier.Push("Build FAILED!", buildErrors[1], "", notificator.UR_CRITICAL); err != nil {
-				logger.Println("Notification send failed")
-			}
-		}
 	} else {
-		buildError = nil
 		logger.Printf("%sBuild finished%s\n", colorGreen, colorReset)
 		if immediate {
 			runner.Run()
-		}
-		if notifications {
-			if err := notifier.Push("Build Succeded", "Build Finished!", "", notificator.UR_CRITICAL); err != nil {
-				logger.Println("Notification send failed")
-			}
 		}
 	}
 

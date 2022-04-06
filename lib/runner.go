@@ -68,7 +68,6 @@ func (r *runner) Kill() error {
 			close(done)
 		}()
 
-		//Trying a "soft" kill first
 		if runtime.GOOS == "windows" {
 			if err := r.command.Process.Kill(); err != nil {
 				return err
@@ -77,7 +76,6 @@ func (r *runner) Kill() error {
 			return err
 		}
 
-		//Wait for our process to die before we return or hard kill after 3 sec
 		select {
 		case <-time.After(3 * time.Second):
 			if err := r.command.Process.Kill(); err != nil {

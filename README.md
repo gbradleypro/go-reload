@@ -16,7 +16,7 @@ Assuming you have a working Go environment and `GOPATH/bin` is in your
 `PATH`, `gin` is a breeze to install:
 
 ```shell
-go get github.com/codegangsta/gin
+go get github.com/gbradleypro/reload-gode
 ```
 
 Then verify that `gin` was installed correctly:
@@ -51,7 +51,7 @@ Options
 
 ## Supporting Gin in Your Web app
 `gin` assumes that your web app binds itself to the `PORT` environment
-variable so it can properly proxy requests to your app. Web frameworks
+variable, so it can properly proxy requests to your app. Web frameworks
 like [Martini](http://github.com/codegangsta/martini) do this out of
 the box.
 
